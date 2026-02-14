@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import FastAPI, Header, HTTPException
 from final.session_memory import SessionMemory
 from final.session_context_memory import SessionContextMemory
@@ -14,7 +15,7 @@ context_memory = SessionContextMemory()
 # -------------------------
 # CONFIG
 # -------------------------
-MAX_MESSAGES_PER_SESSION = 6
+MAX_MESSAGES_PER_SESSION = 10
 
 # Track callback status per session
 callback_sent_tracker = {}
@@ -109,9 +110,9 @@ async def honeypot(payload: dict, x_api_key: str = Header(None)):
             or (session_end and total_messages >= MIN_MESSAGES_BEFORE_CALLBACK)
         )
     ):
-    
+
         print("\n🔥 TRIGGERING CALLBACK 🔥")
-    
+
         payload = {
             "sessionId": session_id,
             "scamDetected": scam,
@@ -119,12 +120,12 @@ async def honeypot(payload: dict, x_api_key: str = Header(None)):
             "extractedIntelligence": cumulative_intel,
             "agentNotes": f"Turns:{total_messages}"
         }
-    
-        callback_success = await send_callback(payload)
-    
-        print("📡 Callback sent:", callback_success)
-    
+
+        # 🚀 Run in background
+        asyncio.create_task(send_callback(payload))
+
         callback_sent_tracker[session_id] = True
+
 
 
     # -------------------------
@@ -143,5 +144,4 @@ async def honeypot(payload: dict, x_api_key: str = Header(None)):
         "status": "success",
         "reply": reply
     }
-
 
