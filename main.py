@@ -14,7 +14,7 @@ context_memory = SessionContextMemory()
 # -------------------------
 # CONFIG
 # -------------------------
-MAX_MESSAGES_PER_SESSION = 10
+MAX_MESSAGES_PER_SESSION = 6
 
 # Track callback status per session
 callback_sent_tracker = {}
@@ -143,4 +143,5 @@ async def honeypot(payload: dict, x_api_key: str = Header(None)):
         "status": "success",
         "reply": reply
     }
+
 
