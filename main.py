@@ -114,7 +114,6 @@
 #         "status": "success",
 #         "reply": reply
 #     }
-
 from fastapi import FastAPI, Header, HTTPException, BackgroundTasks
 from final.session_memory import SessionMemory
 from final.session_context_memory import SessionContextMemory
@@ -132,58 +131,46 @@ context_memory = SessionContextMemory()
 MAX_MESSAGES_PER_SESSION = 6
 MIN_MESSAGES_BEFORE_CALLBACK = 4
 
-# 🔐 Session State Manager
-session_state = {}
-
-
-# -------------------------
-# Safe Delayed Cleanup
-# -------------------------
-async def delayed_cleanup(session_id):
-    """
-    Wait before clearing session to avoid race condition
-    when extra messages arrive after callback.
-    """
-    await asyncio.sleep(30)
-
-    if session_id in session_state and not session_state[session_id]["active"]:
-        memory.clear_session(session_id)
-        context_memory.clear_session(session_id)
-        session_state.pop(session_id, None)
-        print(f"🧹 Session {session_id} safely cleaned after delay.")
+callback_sent_tracker = {}
 
 
 # -------------------------
 # Background Processing
 # -------------------------
-async def background_processing(session_id, message, previous_intel, persona, action, session_end):
-    try:
-        # 1. Extraction
-        intel = await process_message_extraction(message, previous_intel, persona, action)
+async def background_processing(session_id, message, persona, action, session_end):
 
+    try:
+        # 🔴 ALWAYS FETCH LATEST INTEL
+        latest_intel = context_memory.get_intel(session_id)
+
+        # 1. Extraction using LIVE intel
+        intel = await process_message_extraction(
+            message,
+            latest_intel,
+            persona,
+            action
+        )
+
+        # 2. Store extracted intelligence
         if intel:
             context_memory.append_intel(session_id, intel)
 
-        # 2. Ensure session exists
-        if session_id not in session_state:
-            session_state[session_id] = {
-                "callback_sent": False,
-                "active": True
-            }
-
+        # 3. Check for Callback
         cumulative_intel = context_memory.get_intel(session_id)
         total_messages = len(memory.get_history(session_id))
 
-        # 3. Trigger Callback ONLY once
+        if session_id not in callback_sent_tracker:
+            callback_sent_tracker[session_id] = False
+
+        # 🔥 Trigger once when intel matures
         if (
-            session_state[session_id]["active"]
-            and not session_state[session_id]["callback_sent"]
-            and (
+            not callback_sent_tracker[session_id] and
+            (
                 total_messages >= MAX_MESSAGES_PER_SESSION
                 or (session_end and total_messages >= MIN_MESSAGES_BEFORE_CALLBACK)
             )
         ):
-            print(f"\n🔥 TRIGGERING CALLBACK in Background for {session_id} 🔥")
+            print(f"\n🔥 TRIGGERING CALLBACK for {session_id} 🔥")
 
             await send_callback(
                 session_id,
@@ -191,18 +178,18 @@ async def background_processing(session_id, message, previous_intel, persona, ac
                 cumulative_intel
             )
 
-            session_state[session_id]["callback_sent"] = True
+            callback_sent_tracker[session_id] = True
 
-        # 4. Soft close session (DO NOT DELETE immediately)
+        # 4. Cleanup ONLY if session actually ended
         if session_end:
-            print(f"🟡 Session {session_id} marked inactive.")
-            session_state[session_id]["active"] = False
-
-            # Cleanup later safely
-            asyncio.create_task(delayed_cleanup(session_id))
+            await asyncio.sleep(1)
+            memory.clear_session(session_id)
+            context_memory.clear_session(session_id)
+            callback_sent_tracker.pop(session_id, None)
+            print(f"🧹 Session {session_id} cleared.")
 
     except Exception as e:
-        print(f"❌ Background Processing Error for {session_id}: {e}")
+        print(f"❌ Background Processing Error: {e}")
 
 
 # -------------------------
@@ -220,13 +207,6 @@ async def honeypot(payload: dict, background_tasks: BackgroundTasks, x_api_key: 
     session_id = payload["sessionId"]
     msg = payload["message"]["text"]
 
-    # Ensure session state exists
-    if session_id not in session_state:
-        session_state[session_id] = {
-            "callback_sent": False,
-            "active": True
-        }
-
     # 1. Store scammer message
     memory.add_message(session_id, "scammer", msg)
 
@@ -235,7 +215,7 @@ async def honeypot(payload: dict, background_tasks: BackgroundTasks, x_api_key: 
     previous_intel = context_memory.get_intel(session_id)
     message_count = len(memory.get_history(session_id))
 
-    # 3. Quick Reply Phase (FAST)
+    # 3. Quick Reply
     scam, reply, session_end, persona, action = await process_message_reply(
         msg,
         history,
@@ -244,16 +224,15 @@ async def honeypot(payload: dict, background_tasks: BackgroundTasks, x_api_key: 
         message_count
     )
 
-    # 4. Store persona reply immediately
+    # 4. Store persona reply
     memory.add_message(session_id, "user", reply)
 
-    # 5. Run heavy tasks in background
+    # 5. Background extraction
     if scam:
         background_tasks.add_task(
             background_processing,
             session_id,
             msg,
-            previous_intel,
             persona,
             action,
             session_end
@@ -266,4 +245,3 @@ async def honeypot(payload: dict, background_tasks: BackgroundTasks, x_api_key: 
         "status": "success",
         "reply": reply
     }
-
