@@ -5,14 +5,14 @@ from autogen_core.models import (
     UserMessage,
     SystemMessage
 )
-from final.config import GROQ_API_KEY
+from final.config import GROQ_API_KEY1,GROQ_API_KEY2
 
 def get_model_client():
 
     return OpenAIChatCompletionClient(
-        model="llama-3.3-70b-versatile",
+        model="meta-llama/llama-4-maverick-17b-128e-instruct",
         base_url="https://api.groq.com/openai/v1",
-        api_key=GROQ_API_KEY,
+        api_key=GROQ_API_KEY1,
         response_format={"type": "json_object"},
         model_info={
             "vision": False,
@@ -26,9 +26,9 @@ def get_model_client():
 def get_model_client_2():
 
     return OpenAIChatCompletionClient(
-        model="llama-3.3-70b-versatile",
+        model="meta-llama/llama-4-maverick-17b-128e-instruct",
         base_url="https://api.groq.com/openai/v1",
-        api_key=GROQ_API_KEY,
+        api_key=GROQ_API_KEY2,
         model_info={
             "vision": False,
             "function_calling": True,
@@ -36,4 +36,8 @@ def get_model_client_2():
             "family": ModelFamily.UNKNOWN,
             "structured_output": True,
         },
+        temperature=0.7,          
+        max_tokens=20,            
+        top_p=0.9,
     )
+
