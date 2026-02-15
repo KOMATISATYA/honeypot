@@ -117,6 +117,9 @@ from final.agents.team_orchestrator import (
     process_message_extraction
 )
 from final.config import API_KEY
+from final.rl.persona_rl import persona_rl
+from final.rl.strategy_rl import strategy_rl
+from final.agents.team_orchestrator import intel_score, ACTIONS
 import time
 
 app = FastAPI()
@@ -157,7 +160,7 @@ async def honeypot(payload: dict, x_api_key: str = Header(None)):
     previous_intel = context_memory.get_intel(session_id)
     message_count = len(memory.get_history(session_id))
 
-    # 2️⃣ Determine if we hit max turns
+    # 2️⃣ Determine if max turns reached
     max_turn_reached = message_count >= MAX_MESSAGES_PER_SESSION
 
     # 3️⃣ Generate reply only if max turns not reached
@@ -170,9 +173,11 @@ async def honeypot(payload: dict, x_api_key: str = Header(None)):
             message_count
         )
     else:
-        scam, reply, session_end, persona, action = True, "⚠ Maximum message limit reached. Stopping further replies.", True, None, None
+        # Hardcoded final reply after max turn
+        scam, reply, session_end, persona, action = True, \
+            "⚠ Maximum message limit reached. Stopping further replies.", True, None, None
 
-    # Store reply (either persona or hardcoded)
+    # Store reply (persona or hardcoded)
     memory.add_message(session_id, "user", reply)
 
     # 4️⃣ Always extract intelligence if it's a scam
@@ -185,8 +190,13 @@ async def honeypot(payload: dict, x_api_key: str = Header(None)):
         )
         if intel:
             context_memory.append_intel(session_id, intel)
+            # Only update RL if persona/action are valid
+            if persona and action:
+                score = intel_score(intel)
+                persona_rl.update(persona, score)
+                strategy_rl.update("generic", action, score, "generic", ACTIONS)
 
-    # 5️⃣ Trigger callback if max turn or session_end
+    # 5️⃣ Trigger callback if max turn reached or session end
     cumulative_intel = context_memory.get_intel(session_id)
     total_messages = len(memory.get_history(session_id))
     if max_turn_reached or (session_end and total_messages >= MIN_MESSAGES_BEFORE_CALLBACK):
