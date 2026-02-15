@@ -147,7 +147,7 @@ session_completed = {}
 # EARLY INTEL CHECK
 # Stop if atleast 2 intel fields are filled
 # -------------------------
-def has_minimum_intel(intel: dict, min_fields=4):
+def has_minimum_intel(intel: dict, min_fields):
     if not intel:
         return False
 
@@ -238,7 +238,7 @@ async def honeypot(payload: dict, x_api_key: str = Header(None)):
             logger.info(f"Cumulative Intel: {cumulative_intel}")
 
             # 🔥 EARLY STOP if atleast 2 intel fields captured
-            if has_minimum_intel(cumulative_intel, min_fields=4):
+            if has_minimum_intel(cumulative_intel, min_fields=2):
 
                 total_messages = len(memory.get_history(session_id))
 
