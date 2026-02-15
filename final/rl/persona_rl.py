@@ -4,7 +4,7 @@ import os
 
 class PersonaRL:
 
-    FILE = "persona_scores.json"
+    FILE = "/temp/persona_scores.json"
 
     def __init__(self):
 
@@ -37,3 +37,4 @@ class PersonaRL:
         self.scores[persona]["wins"] += score
         self.scores[persona]["trials"] += 1
         self.save()
+
