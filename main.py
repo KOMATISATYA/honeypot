@@ -238,7 +238,7 @@ async def honeypot(payload: dict, x_api_key: str = Header(None)):
             logger.info(f"Cumulative Intel: {cumulative_intel}")
 
             # 🔥 EARLY STOP if atleast 2 intel fields captured
-            if has_minimum_intel(cumulative_intel, min_fields=2):
+            if has_minimum_intel(cumulative_intel, min_fields=4):
 
                 total_messages = len(memory.get_history(session_id))
 
