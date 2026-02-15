@@ -117,8 +117,12 @@ from final.agents.team_orchestrator import (
     process_message_extraction
 )
 from final.config import API_KEY
-from final.rl.persona_rl import persona_rl
-from final.rl.strategy_rl import strategy_rl
+from final.rl.persona_rl import PersonaRL
+from final.rl.strategy_rl import StrategyRL
+
+# Instantiate RL agents
+persona_rl = PersonaRL()
+strategy_rl = StrategyRL()
 from final.agents.team_orchestrator import intel_score, ACTIONS
 import time
 
