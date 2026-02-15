@@ -12,7 +12,7 @@ app = FastAPI()
 memory = SessionMemory(max_history=20)
 context_memory = SessionContextMemory()
 
-MAX_MESSAGES_PER_SESSION = 10
+MAX_MESSAGES_PER_SESSION = 6
 MIN_MESSAGES_BEFORE_CALLBACK = 4
 callback_sent_tracker = {}
 
@@ -114,3 +114,4 @@ async def honeypot(payload: dict, background_tasks: BackgroundTasks, x_api_key: 
         "status": "success",
         "reply": reply
     }
+
