@@ -1,31 +1,73 @@
-import asyncio
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, BackgroundTasks
 from final.session_memory import SessionMemory
 from final.session_context_memory import SessionContextMemory
 from final.callback_service import send_callback
-from final.agents.team_orchestrator import process_message
+from final.agents.team_orchestrator import process_message_reply, process_message_extraction
 from final.config import API_KEY
-import time  # ✅ ADD THIS
+import time
+import asyncio
 
 app = FastAPI()
 
 memory = SessionMemory(max_history=20)
 context_memory = SessionContextMemory()
 
-# -------------------------
-# CONFIG
-# -------------------------
 MAX_MESSAGES_PER_SESSION = 10
-
-# Track callback status per session
+MIN_MESSAGES_BEFORE_CALLBACK = 4
 callback_sent_tracker = {}
 
 
-@app.post("/honeypot")
-async def honeypot(payload: dict, x_api_key: str = Header(None)):
+async def background_processing(session_id, message, previous_intel, persona, action, session_end):
+    """
+    Handles heavy tasks in the background after the user has received the reply.
+    """
+    try:
+        # 1. Extraction & RL Updates
+        intel = await process_message_extraction(message, previous_intel, persona, action)
 
-    # ⏱️ Start total API timer
+        # 2. Store extracted intelligence
+        if intel:
+            context_memory.append_intel(session_id, intel)
+
+        # 3. Check for Callback
+        cumulative_intel = context_memory.get_intel(session_id)
+        total_messages = len(memory.get_history(session_id))
+
+        if session_id not in callback_sent_tracker:
+            callback_sent_tracker[session_id] = False
+
+        if (
+            not callback_sent_tracker[session_id] and
+            (
+                total_messages >= MAX_MESSAGES_PER_SESSION
+                or (session_end and total_messages >= MIN_MESSAGES_BEFORE_CALLBACK)
+            )
+        ):
+            print(f"\n🔥 TRIGGERING CALLBACK in Background for {session_id} 🔥")
+            await send_callback(
+                session_id,
+                total_messages,
+                cumulative_intel
+            )
+            callback_sent_tracker[session_id] = True
+
+        # 4. Clear memory if session end
+        if session_end:
+            await asyncio.sleep(1) # Small delay to ensure no race conditions
+            memory.clear_session(session_id)
+            context_memory.clear_session(session_id)
+            callback_sent_tracker.pop(session_id, None)
+            print(f"� Session {session_id} cleared in background.")
+
+    except Exception as e:
+        print(f"❌ Background Processing Error for {session_id}: {e}")
+
+
+@app.post("/honeypot")
+async def honeypot(payload: dict, background_tasks: BackgroundTasks, x_api_key: str = Header(None)):
+
     api_start_time = time.perf_counter()
+    print("\n================ API REQUEST START ================")
 
     if x_api_key != API_KEY:
         raise HTTPException(status_code=403, detail="Invalid API Key")
@@ -33,115 +75,42 @@ async def honeypot(payload: dict, x_api_key: str = Header(None)):
     session_id = payload["sessionId"]
     msg = payload["message"]["text"]
 
-    # -------------------------
-    # Store scammer message
-    # -------------------------
+    # 1. Store scammer message
     memory.add_message(session_id, "scammer", msg)
-
+    
+    # 2. Get Context
     history = memory.get_formatted_history(session_id)
     previous_intel = context_memory.get_intel(session_id)
+    message_count = len(memory.get_history(session_id))
 
-    # -------------------------
-    # Process Message (Measure LLM time)
-    # -------------------------
-    llm_start = time.perf_counter()
-
-    scam, reply, intel, session_end = await process_message(
+    # 3. Quick Reply Phase
+    scam, reply, session_end, persona, action = await process_message_reply(
         msg,
         history,
         session_id,
-        previous_intel
+        previous_intel,
+        message_count
     )
 
-    llm_end = time.perf_counter()
-    print(f"🤖 process_message() time: {llm_end - llm_start:.3f} seconds")
-
-    # -------------------------
-    # Store persona reply
-    # -------------------------
+    # 4. Store persona reply immediately (critical for history chain)
     memory.add_message(session_id, "user", reply)
 
-    total_messages = len(memory.get_history(session_id))
-
-    # -------------------------
-    # Store extracted intelligence
-    # -------------------------
-    if intel:
-        context_memory.append_intel(session_id, intel)
-
-    cumulative_intel = context_memory.get_intel(session_id)
-
-    # -------------------------
-    # CALLBACK LOGIC
-    # -------------------------
-    MIN_MESSAGES_BEFORE_CALLBACK = 4
-
-    if session_id not in callback_sent_tracker:
-        callback_sent_tracker[session_id] = False
-
-    # if (
-    #     not callback_sent_tracker[session_id] and
-    #     (
-    #         total_messages >= MAX_MESSAGES_PER_SESSION
-    #         or (session_end and total_messages >= MIN_MESSAGES_BEFORE_CALLBACK)
-    #     )
-    # ):
-
-    #     print("\n🔥 TRIGGERING CALLBACK 🔥")
-    #     print("Total Messages:", total_messages)
-    #     print("Cumulative Intel:", cumulative_intel)
-
-    #     callback_start = time.perf_counter()
-
-    #     await send_callback(
-    #         session_id,
-    #         total_messages,
-    #         cumulative_intel
-    #     )
-
-    #     callback_end = time.perf_counter()
-    #     print(f"📡 send_callback() time: {callback_end - callback_start:.3f} seconds")
-
-    #     callback_sent_tracker[session_id] = True
-    if (
-        not callback_sent_tracker[session_id] and
-        (
-            total_messages >= MAX_MESSAGES_PER_SESSION
-            or (session_end and total_messages >= MIN_MESSAGES_BEFORE_CALLBACK)
+    # 5. Offload everything else to background
+    if scam:
+        background_tasks.add_task(
+            background_processing,
+            session_id,
+            msg,
+            previous_intel,
+            persona,
+            action,
+            session_end
         )
-    ):
 
-        print("\n🔥 TRIGGERING CALLBACK 🔥")
-
-        payload = {
-            "sessionId": session_id,
-            "scamDetected": scam,
-            "totalMessagesExchanged": total_messages,
-            "extractedIntelligence": cumulative_intel,
-            "agentNotes": f"Turns:{total_messages}"
-        }
-
-        # 🚀 Run in background
-        asyncio.create_task(send_callback(payload))
-
-        callback_sent_tracker[session_id] = True
-
-
-
-    # -------------------------
-    # Clear memory if session closed
-    # -------------------------
-    if session_end:
-        memory.clear_session(session_id)
-        context_memory.clear_session(session_id)
-        callback_sent_tracker.pop(session_id, None)
-
-    # ⏱️ End total API timer
-    api_end_time = time.perf_counter()
-    print(f"🚀 TOTAL API Response Time: {api_end_time - api_start_time:.3f} seconds")
+    print(f"🚀 API RESPONSE SENT IN: {time.perf_counter() - api_start_time:.3f}s")
+    print("================ API REQUEST END ==================\n")
 
     return {
         "status": "success",
         "reply": reply
     }
-
