@@ -313,18 +313,16 @@ app = FastAPI()
 memory = SessionMemory(max_history=20)
 context_memory = SessionContextMemory()
 
-MAX_MESSAGES_PER_SESSION = 10
+MAX_MESSAGES_PER_SESSION = 2
 MIN_MESSAGES_BEFORE_CALLBACK = 4
 
 # Track completed sessions
 session_completed = {}
-
-# ⭐ Track engagement start time
 session_start_time = {}
-
 
 @app.post("/honeypot")
 async def honeypot(payload: dict, x_api_key: str = Header(None)):
+
 
     api_start_time = time.perf_counter()
     print("\n================ API REQUEST START ================")
@@ -335,15 +333,20 @@ async def honeypot(payload: dict, x_api_key: str = Header(None)):
     session_id = payload["sessionId"]
     msg = payload["message"]["text"]
 
+    if session_id not in session_start_time:
+        session_start_time[session_id] = time.time()
+
     # 🔒 Block if already completed
+    # if session_completed.get(session_id, False):
+    #     return {
+    #         "status": "completed",
+    #         "reply": "Session already completed."
+    #     }
     if session_completed.get(session_id, False):
         return {
             "status": "completed"
         }
 
-    # ⭐ Start engagement timer if first interaction
-    if session_id not in session_start_time:
-        session_start_time[session_id] = time.time()
 
     # 1️⃣ Store scammer message
     memory.add_message(session_id, "scammer", msg)
@@ -361,7 +364,7 @@ async def honeypot(payload: dict, x_api_key: str = Header(None)):
         message_count
     )
 
-    # Store honeypot reply
+    # Store reply
     memory.add_message(session_id, "user", reply)
 
     # 3️⃣ If scam → run extraction immediately
@@ -385,38 +388,35 @@ async def honeypot(payload: dict, x_api_key: str = Header(None)):
     ):
         cumulative_intel = context_memory.get_intel(session_id)
 
-        # ⭐ Calculate Engagement Metrics
         start_time = session_start_time.get(session_id, time.time())
         engagement_duration = int(time.time() - start_time)
 
-        engagement_metrics = {
+        cumulative_intel["engagementMetrics"] = {
             "totalMessagesExchanged": total_messages,
             "engagementDurationSeconds": engagement_duration
         }
-
+        print(cumulative_intel)
         print(f"\n🔥 TRIGGERING CALLBACK (SYNC) for {session_id} 🔥")
-        print(f"📊 Engagement Metrics: {engagement_metrics}")
 
         await send_callback(
-            session_id=session_id,
-            total_messages=total_messages,
-            cumulative_intel=cumulative_intel,
-            engagement_metrics=engagement_metrics
+            session_id,
+            total_messages,
+            cumulative_intel
         )
 
-        # 🧹 Clear session safely
+        # Clear session safely
         memory.clear_session(session_id)
         context_memory.clear_session(session_id)
         session_completed[session_id] = True
-        session_start_time.pop(session_id, None)
 
         print(f"✅ Session {session_id} completed & cleared.")
 
     print(f"🚀 API RESPONSE SENT IN: {time.perf_counter() - api_start_time:.3f}s")
+
+
     print("================ API REQUEST END ==================\n")
 
     return {
         "status": "success",
         "reply": reply
     }
-
