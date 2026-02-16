@@ -115,8 +115,8 @@ app = FastAPI()
 memory = SessionMemory(max_history=20)
 context_memory = SessionContextMemory()
 
-MAX_MESSAGES_PER_SESSION = 20
-MIN_MESSAGES_BEFORE_CALLBACK = 10
+MAX_MESSAGES_PER_SESSION = 16
+MIN_MESSAGES_BEFORE_CALLBACK = 6
 
 # Track completed sessions
 session_completed = {}
