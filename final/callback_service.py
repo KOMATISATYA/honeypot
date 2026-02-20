@@ -13,7 +13,6 @@ async def send_callback(session_id, total_messages, intel, duration_seconds):
         agent_notes = ""
         
     scam = extracted_data.get("scamDetected", False)
-    extracted_data.pop("scamDetected", None)
     
     engagement_metrics ={
         "engagementDurationSeconds":duration_seconds,
@@ -38,6 +37,7 @@ async def send_callback(session_id, total_messages, intel, duration_seconds):
 
     except Exception as e:
         print("Callback error:", e)
+
 
 
 
