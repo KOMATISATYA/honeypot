@@ -1,6 +1,6 @@
 import requests
 
-async def send_callback(session_id, total_messages, intel, engagement_metrics):
+async def send_callback(session_id, total_messages, intel, duration_seconds):
 
     if hasattr(intel, "model_dump"):
         extracted_data = intel.model_dump()
@@ -14,6 +14,11 @@ async def send_callback(session_id, total_messages, intel, engagement_metrics):
         
     scam = extracted_data.get("scamDetected", False)
     extracted_data.pop("scamDetected", None)
+    
+    engagement_metrics ={
+        engagementDurationSeconds=duration_seconds,
+        totalMessagesExchanged=total_messages
+    }
     payload = {
         "sessionId": session_id,
         "scamDetected": scam,
@@ -32,6 +37,7 @@ async def send_callback(session_id, total_messages, intel, engagement_metrics):
 
     except Exception as e:
         print("Callback error:", e)
+
 
 
 
