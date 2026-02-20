@@ -76,14 +76,15 @@ async def honeypot(payload: dict, x_api_key: str = Header(None)):
         start_time = session_start_time.get(session_id, time.time())
         engagement_duration = int(time.time() - start_time)
 
-        cumulative_intel["engagementMetrics"] = {
-            "totalMessagesExchanged": total_messages,
-            "engagementDurationSeconds": engagement_duration
-        }
+        engagement_metrics = {
+        "totalMessagesExchanged": total_messages,
+        "engagementDurationSeconds": engagement_duration
+         }
         await send_callback(
             session_id,
             total_messages,
-            cumulative_intel
+            cumulative_intel,
+            engagement_metrics
         )
 
         memory.clear_session(session_id)
