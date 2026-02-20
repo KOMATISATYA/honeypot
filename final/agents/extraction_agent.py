@@ -22,8 +22,9 @@ Rules:
 - If no data found → return empty lists or defaults
 
 IMPORTANT:
-Once all fields (bankAccounts, upiIds, phishingLinks, phoneNumbers, suspiciousKeywords) 
+Once all fields (bankAccounts, upiIds, phishingLinks, phoneNumbers, suspiciousKeywords, emailAddresses) 
 are populated OR you are confident no more information can be extracted,
 the next message from PersonaAgent should be a short natural closing message like "Thank you."
 """
 )
+
