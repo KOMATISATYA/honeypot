@@ -29,7 +29,7 @@ async def send_callback(session_id, total_messages, intel, duration_seconds):
         "engagementMetrics":engagement_metrics,
         "agentNotes": agent_notes
     }
-    print("payload",payload)
+   
     try:
         response = requests.post(
             "https://hackathon.guvi.in/api/updateHoneyPotFinalResult",
@@ -39,6 +39,7 @@ async def send_callback(session_id, total_messages, intel, duration_seconds):
 
     except Exception as e:
         print("Callback error:", e)
+
 
 
 
