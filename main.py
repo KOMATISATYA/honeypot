@@ -90,6 +90,7 @@ async def honeypot(payload: dict, x_api_key: str = Header(None)):
         memory.clear_session(session_id)
         context_memory.clear_session(session_id)
         session_completed[session_id] = True
+        session_start_time.pop(session_id, None)
 
     return {
         "status": "success",
