@@ -23,7 +23,7 @@ async def send_callback(session_id, total_messages, intel, duration_seconds):
         "sessionId": session_id,
         "scamDetected": scam,
         "extractedIntelligence": extracted_data,
-        "totalMessagesExchanged": total_messages_exchanged,
+        "totalMessagesExchanged": total_messages,
         "engagementDurationSeconds": duration_seconds,
         "engagementMetrics":engagement_metrics,
         "agentNotes": agent_notes
