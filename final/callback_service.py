@@ -13,6 +13,8 @@ async def send_callback(session_id, total_messages, intel, duration_seconds):
         agent_notes = ""
         
     scam = extracted_data.get("scamDetected", False)
+    extracted_data.pop("scamDetected", False)
+    extracted_data.pop("agentNotes", "")
     
     engagement_metrics ={
         "engagementDurationSeconds":duration_seconds,
