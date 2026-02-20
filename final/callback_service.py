@@ -11,10 +11,12 @@ async def send_callback(session_id, total_messages, intel, engagement_metrics):
     else:
         extracted_data = {}
         agent_notes = ""
-
+        
+    scam = extracted_data.get("scamDetected", False)
+    extracted_data.pop("scamDetected", None)
     payload = {
         "sessionId": session_id,
-        "scamDetected": True,
+        "scamDetected": scam,
         "totalMessagesExchanged": total_messages,
         "extractedIntelligence": extracted_data,
         "engagementMetrics":engagement_metrics,
@@ -30,6 +32,7 @@ async def send_callback(session_id, total_messages, intel, engagement_metrics):
 
     except Exception as e:
         print("Callback error:", e)
+
 
 
 
