@@ -1,6 +1,6 @@
 import requests
 
-async def send_callback(session_id, total_messages, intel):
+async def send_callback(session_id, total_messages, intel, engagement_metrics):
 
     if hasattr(intel, "model_dump"):
         extracted_data = intel.model_dump()
@@ -17,6 +17,7 @@ async def send_callback(session_id, total_messages, intel):
         "scamDetected": True,
         "totalMessagesExchanged": total_messages,
         "extractedIntelligence": extracted_data,
+        "engagement_Metrics":engagement_metrics,
         "agentNotes": agent_notes
     }
 
@@ -29,3 +30,4 @@ async def send_callback(session_id, total_messages, intel):
 
     except Exception as e:
         print("Callback error:", e)
+
