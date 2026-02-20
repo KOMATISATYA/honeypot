@@ -9,5 +9,7 @@ class IntelligenceSchema(BaseModel):
     phishingLinks: List[str] = []
     phoneNumbers: List[str] = []
     suspiciousKeywords: List[str] = []
+    emailAddresses: List[str] = []
     agentNotes: str = ""
     confidenceScore: float = 0.0
+
