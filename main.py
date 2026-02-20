@@ -74,7 +74,7 @@ async def honeypot(payload: dict, x_api_key: str = Header(None)):
         cumulative_intel = context_memory.get_intel(session_id)
 
         start_time = session_start_time.get(session_id)
-        print("start_time",start_time)
+
         if start_time is None:
             engagement_duration = 0
         else:
