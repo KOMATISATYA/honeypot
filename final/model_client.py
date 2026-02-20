@@ -37,6 +37,6 @@ def get_model_client_2():
             "structured_output": True,
         },
         temperature=0.7,          
-        max_tokens=100,            
+        # max_tokens=1000,            
         top_p=0.9,
     )
