@@ -17,7 +17,7 @@ async def send_callback(session_id, total_messages, intel, engagement_metrics):
         "scamDetected": True,
         "totalMessagesExchanged": total_messages,
         "extractedIntelligence": extracted_data,
-        "engagement_Metrics":engagement_metrics,
+        "engagementMetrics":engagement_metrics,
         "agentNotes": agent_notes
     }
     print("payload",payload)
@@ -30,5 +30,6 @@ async def send_callback(session_id, total_messages, intel, engagement_metrics):
 
     except Exception as e:
         print("Callback error:", e)
+
 
 
